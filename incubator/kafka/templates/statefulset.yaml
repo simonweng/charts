@@ -87,28 +87,6 @@ spec:
       - name: {{ include "kafka.name" . }}-broker
         image: "{{ .Values.image }}:{{ .Values.imageTag }}"
         imagePullPolicy: "{{ .Values.imagePullPolicy }}"
-        livenessProbe:
-          exec:
-            command:
-              - sh
-              - -ec
-              - /usr/bin/jps | /bin/grep -q SupportedKafka
-          {{- if not .Values.livenessProbe }}
-          initialDelaySeconds: 30
-          timeoutSeconds: 5
-          {{- else }}
-          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | default 30}}
-          {{- if .Values.livenessProbe.periodSeconds }}
-          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
-          {{- end }}
-          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 5}}
-          {{- if .Values.livenessProbe.successThreshold }}
-          successThreshold: {{ .Values.livenessProbe.successThreshold }}
-          {{- end }}
-          {{- if .Values.livenessProbe.failureThreshold }}
-          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
-          {{- end }}
-          {{- end }}
         readinessProbe:
           tcpSocket:
             port: kafka
@@ -203,24 +181,28 @@ spec:
           export LOAD_BALANCER_IP=$(echo '{{ .Values.external.loadBalancerIP }}' | tr -d '[]' | cut -d ' ' -f "$(($KAFKA_BROKER_ID + 1))") && \
           {{- end }}
           {{- if eq .Values.external.type "NodePort" }}
+          export firstListenerPort={{ .Values.external.firstListenerPort }} && \
+          export KAFKA_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:$(( $firstListenerPort + $KAFKA_BROKER_ID )) && \
           export KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://${POD_IP}:9092{{ if kindIs "string" $advertisedListenersOverride }}{{ printf ",%s" $advertisedListenersOverride }}{{ end }} && \
           {{- else }}
+          export KAFKA_LISTENERS=PLAINTEXT://:9092,EXTERNAL://:{{ if .Values.external.distinct }}{{ .Values.external.servicePort }}{{ else }}{{ .Values.external.firstListenerPort }}{{ end }} && \
           export KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://${POD_NAME}.{{ include "kafka.fullname" . }}-headless.${POD_NAMESPACE}.svc.cluster.local:9092{{ if kindIs "string" $advertisedListenersOverride }}{{ printf ",%s" $advertisedListenersOverride }}{{ end }} && \
           {{- end }}
-          exec /etc/confluent/docker/run
+          export KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+          exec start-kafka.sh
         volumeMounts:
-        - name: datadir
-          mountPath: {{ .Values.persistence.mountPath | quote }}
-        {{- range $secret := .Values.secrets }}
-          {{- if $secret.mountPath }}
+          - name: datadir
+            mountPath: {{ .Values.persistence.mountPath | quote }}
+            {{- range $secret := .Values.secrets }}
+            {{- if $secret.mountPath }}
             {{- if $secret.keys }}
-              {{- range $key := $secret.keys }}
-        - name: {{ include "kafka.fullname" $ }}-{{ $secret.name }}
-          mountPath: {{ $secret.mountPath }}/{{ $key }}
-          subPath: {{ $key }}
-          readOnly: true
+          {{- range $key := $secret.keys }}
+          - name: {{ include "kafka.fullname" $ }}- {{ $secret.name }}
+            mountPath: {{ $secret.mountPath }}/{{ $key }}
+            subPath: {{ $key }}
+            readOnly: true
               {{- end }}
-            {{- else }}
+          {{- else }}
         - name: {{ include "kafka.fullname" $ }}-{{ $secret.name }}
           mountPath: {{ $secret.mountPath }}
           readOnly: true
