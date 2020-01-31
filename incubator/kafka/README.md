@@ -37,17 +37,15 @@ To install the chart with the release name `my-kafka` in the default
 namespace:
 
 ```
-$ helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
-$ helm install --name my-kafka incubator/kafka
+$ helm install --name my-kafka {kafka chart archive}
 ```
 
 If using a dedicated namespace(recommended) then make sure the namespace
 exists with:
 
 ```
-$ helm repo add incubator http://storage.googleapis.com/kubernetes-charts-incubator
 $ kubectl create ns kafka
-$ helm install --name my-kafka --namespace kafka incubator/kafka
+$ helm install --name my-kafka --namespace kafka {kafka chart archive}
 ```
 
 This chart includes a ZooKeeper chart as a dependency to the Kafka
@@ -134,8 +132,6 @@ following configurable parameters:
 | `prometheus.operator.prometheusRule.releaseNamespace` | Set namespace to release namespace. Default false                                                                                                                        | `false`                                                            |
 | `prometheus.operator.prometheusRule.selector`         | Default to kube-prometheus install (CoreOS recommended), but should be set according to Prometheus install                                                               | `{ prometheus: kube-prometheus }`                                  |
 | `prometheus.operator.prometheusRule.rules`            | Define the prometheus rules. See values file for examples                                                                                                                | `{}`                                                               |
-| `configJob.backoffLimit`                              | Number of retries before considering kafka-config job as failed                                                                                                          | `6`                                                                |
-| `topics`                                              | List of topics to create & configure. Can specify name, partitions, replicationFactor, reassignPartitions, config. See values.yaml                                       | `[]` (Empty list)                                                  |
 | `zookeeper.enabled`                                   | If True, installs Zookeeper Chart                                                                                                                                        | `true`                                                             |
 | `zookeeper.resources`                                 | Zookeeper resource requests and limits                                                                                                                                   | `{}`                                                               |
 | `zookeeper.env`                                       | Environmental variables provided to Zookeeper Zookeeper                                                                                                                  | `{ZK_HEAP_SIZE: "1G"}`                                             |
